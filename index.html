@@ -2,24 +2,47 @@
 <html lang="zh-Hant">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>商品庫存查詢</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>商品庫存查詢 · Home Desyne</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Noto+Serif+TC:wght@500;600;700&display=swap" rel="stylesheet" />
+
 <style>
   :root {
-    --paper: #f5f6f4;
-    --card: #ffffff;
-    --ink: #16202b;
-    --muted: #6b7784;
-    --line: #dde2e0;
-    --accent: #0f6b63;      /* 深青 */
-    --accent-dark: #0b4f49;
-    --warn: #b45309;        /* 低庫存琥珀 */
-    --danger: #b91c1c;
+    /* 暖調中性底色，貼近 Home Desyne 溫潤質感 */
+    --paper:        #efece5;
+    --paper-2:      #f6f4ef;
+    --ink:          #262a2c;
+    --muted:        #8b857b;
+    --line:         rgba(38, 42, 44, 0.10);
+    --line-strong:  rgba(38, 42, 44, 0.16);
+
+    --accent:       #35635a;   /* 沉靜墨綠 */
+    --accent-dark:  #274a43;
+    --accent-soft:  rgba(53, 99, 90, 0.10);
+
+    --warn:         #b0791f;   /* 低庫存 · 琥珀 */
+    --warn-soft:    #f4ecdb;
+    --danger:       #a3493d;   /* 缺貨 · 磚紅 */
+    --danger-soft:  #f2e2df;
+
+    /* 磨砂玻璃 */
+    --glass:        rgba(255, 255, 255, 0.55);
+    --glass-strong: rgba(255, 255, 255, 0.74);
+    --glass-line:   rgba(255, 255, 255, 0.65);
+    --blur:         18px;
+    --shadow:       0 18px 48px -22px rgba(38, 42, 44, 0.32);
+
     --mono: ui-monospace, "SF Mono", "Roboto Mono", "Noto Sans Mono", monospace;
     --sans: "Noto Sans TC", -apple-system, "Segoe UI", system-ui, sans-serif;
+    --serif: "Noto Serif TC", "Songti TC", Georgia, serif;
   }
+
   * { box-sizing: border-box; }
   html, body { margin: 0; }
+
   body {
     font-family: var(--sans);
     background: var(--paper);
@@ -27,134 +50,262 @@
     min-height: 100vh;
     display: flex;
     justify-content: center;
-    padding: 32px 16px 64px;
+    padding: 40px 18px 72px;
     -webkit-font-smoothing: antialiased;
+    position: relative;
+    overflow-x: hidden;
   }
-  .wrap { width: 100%; max-width: 520px; }
 
-  header { margin-bottom: 24px; }
+  /* 柔和背景光暈 + 織品直紋，讓磨砂玻璃有內容可透 */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -2;
+    background:
+      radial-gradient(60% 45% at 18% 8%,  rgba(53, 99, 90, 0.14), transparent 70%),
+      radial-gradient(55% 40% at 92% 22%, rgba(176, 121, 31, 0.12), transparent 70%),
+      radial-gradient(70% 55% at 50% 108%, rgba(53, 99, 90, 0.10), transparent 70%),
+      var(--paper);
+  }
+  body::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    background-image: repeating-linear-gradient(
+      90deg,
+      rgba(38, 42, 44, 0.018) 0px,
+      rgba(38, 42, 44, 0.018) 1px,
+      transparent 1px,
+      transparent 7px
+    );
+    pointer-events: none;
+  }
+
+  .wrap { width: 100%; max-width: 540px; }
+
+  /* ── 標題 ─────────────────────────────── */
+  header {
+    margin-bottom: 26px;
+    animation: rise .6s cubic-bezier(.22,.61,.36,1) both;
+  }
   .eyebrow {
-    font-size: 12px; letter-spacing: 0.18em; text-transform: uppercase;
-    color: var(--accent); font-weight: 600; margin: 0 0 6px;
+    display: inline-flex; align-items: center; gap: 8px;
+    font-family: var(--sans);
+    font-size: 11.5px; letter-spacing: 0.26em; text-transform: uppercase;
+    color: var(--accent); font-weight: 700; margin: 0 0 12px;
   }
-  h1 { font-size: 24px; margin: 0; font-weight: 700; letter-spacing: -0.01em; }
-  .sub { color: var(--muted); font-size: 14px; margin: 6px 0 0; }
+  .eyebrow::before {
+    content: ""; width: 22px; height: 1.5px;
+    background: currentColor; border-radius: 2px; opacity: .7;
+  }
+  h1 {
+    font-family: var(--serif);
+    font-size: 30px; margin: 0; font-weight: 700;
+    letter-spacing: 0.01em; line-height: 1.2;
+  }
+  .sub { color: var(--muted); font-size: 14.5px; margin: 10px 0 0; line-height: 1.6; }
 
+  /* ── 搜尋列 ───────────────────────────── */
   .search {
-    display: flex; gap: 8px; margin-bottom: 20px;
+    display: flex; gap: 10px; margin-bottom: 22px;
+    animation: rise .6s cubic-bezier(.22,.61,.36,1) .06s both;
   }
   .search input {
     flex: 1; font-family: var(--mono); font-size: 17px;
-    padding: 14px 16px; border: 1.5px solid var(--line); border-radius: 10px;
-    background: var(--card); color: var(--ink); outline: none;
-    transition: border-color .15s;
+    padding: 15px 18px;
+    border: 1px solid var(--glass-line);
+    border-radius: 14px;
+    background: var(--glass-strong);
+    -webkit-backdrop-filter: blur(var(--blur));
+    backdrop-filter: blur(var(--blur));
+    color: var(--ink); outline: none;
+    box-shadow: var(--shadow);
+    transition: border-color .18s, box-shadow .18s, transform .18s;
   }
-  .search input:focus { border-color: var(--accent); }
+  .search input::placeholder { color: var(--muted); font-family: var(--sans); }
+  .search input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 4px var(--accent-soft), var(--shadow);
+  }
   .search button {
-    font-family: var(--sans); font-size: 15px; font-weight: 600;
-    padding: 0 22px; border: none; border-radius: 10px;
+    font-family: var(--sans); font-size: 15px; font-weight: 700;
+    letter-spacing: .04em;
+    padding: 0 26px; border: none; border-radius: 14px;
     background: var(--accent); color: #fff; cursor: pointer;
-    transition: background .15s;
+    box-shadow: 0 12px 26px -12px rgba(53, 99, 90, 0.7);
+    transition: background .18s, transform .12s, box-shadow .18s;
   }
-  .search button:hover { background: var(--accent-dark); }
-  .search button:disabled { opacity: .5; cursor: default; }
+  .search button:hover { background: var(--accent-dark); transform: translateY(-1px); }
+  .search button:active { transform: translateY(0); }
+  .search button:disabled { opacity: .5; cursor: default; transform: none; }
 
-  .panel {
-    background: var(--card); border: 1px solid var(--line);
-    border-radius: 14px; overflow: hidden; min-height: 120px;
-  }
-
-  /* 結果卡 */
-  .result { padding: 0; }
-  .r-img {
-    width: 100%; background: #f0f2f0; border-bottom: 1px solid var(--line);
-    display: flex; align-items: center; justify-content: center;
-    min-height: 180px; max-height: 300px; overflow: hidden;
-  }
-  .r-img img {
-    width: 100%; height: 100%; max-height: 300px;
-    object-fit: contain; display: block;
-  }
-  .r-head {
-    padding: 18px 22px; border-bottom: 1px solid var(--line);
-    display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
-  }
-  .r-code {
-    font-family: var(--mono); font-size: 15px; color: var(--muted);
-    letter-spacing: 0.02em;
-  }
-  .r-name { font-size: 20px; font-weight: 700; padding: 20px 22px 4px; }
-  .r-qtyrow {
-    display: flex; align-items: baseline; gap: 10px; padding: 6px 22px 24px;
-  }
-  .r-qty {
-    font-family: var(--mono); font-size: 44px; font-weight: 700;
-    line-height: 1; letter-spacing: -0.02em;
-  }
-  .r-qty.low { color: var(--warn); }
-  .r-qty.zero { color: var(--danger); }
-  .r-unit { color: var(--muted); font-size: 15px; }
-  .tag {
-    font-size: 11px; font-weight: 700; letter-spacing: .06em;
-    padding: 4px 9px; border-radius: 999px; align-self: center;
-  }
-  .tag.low { background: #fef3e2; color: var(--warn); }
-  .tag.zero { background: #fde8e8; color: var(--danger); }
-
-  /* 狀態 */
-  .state {
-    display: flex; flex-direction: column; align-items: center; justify-content: center;
-    text-align: center; padding: 40px 22px; color: var(--muted);
-    min-height: 120px; gap: 8px;
-  }
-  .state .big { font-size: 15px; color: var(--ink); font-weight: 600; }
-  .state.empty .icon { font-size: 30px; opacity: .5; }
-  .state.error { color: var(--danger); }
-  .state.error .big { color: var(--danger); }
-
-  .spinner {
-    width: 22px; height: 22px; border: 2.5px solid var(--line);
-    border-top-color: var(--accent); border-radius: 50%;
-    animation: spin .7s linear infinite;
-  }
-  @keyframes spin { to { transform: rotate(360deg); } }
-
-  .multi {
-    border-top: 1px solid var(--line); padding: 12px 22px 18px;
-    font-size: 13px; color: var(--muted);
-  }
-  .multi b { color: var(--ink); }
-  .multi ul { margin: 8px 0 0; padding-left: 18px; }
-  .multi li { margin: 3px 0; font-family: var(--mono); }
-
-  footer { margin-top: 18px; font-size: 12px; color: var(--muted); text-align: center; }
-  @media (prefers-reduced-motion: reduce) { .spinner { animation: none; } }
-
-  /* QR 區塊 */
-  #qrArea { margin-bottom: 20px; }
+  /* ── QR 區塊 ──────────────────────────── */
+  #qrArea:not(:empty) { margin-bottom: 22px; }
   .qr-card {
-    background: var(--card); border: 1px solid var(--line); border-radius: 14px;
-    padding: 18px; display: flex; flex-direction: column; align-items: center; gap: 10px;
+    background: var(--glass);
+    -webkit-backdrop-filter: blur(var(--blur));
+    backdrop-filter: blur(var(--blur));
+    border: 1px solid var(--glass-line);
+    border-radius: 20px;
+    box-shadow: var(--shadow);
+    padding: 22px;
+    display: flex; flex-direction: column; align-items: center; gap: 14px;
+    animation: qrIn .55s cubic-bezier(.22,.61,.36,1) both;
   }
-  .qr-box { width: 220px; height: 220px; }
+  .qr-box {
+    width: 220px; height: 220px;
+    padding: 14px; border-radius: 16px;
+    background: #fff;
+    box-shadow: inset 0 0 0 1px var(--line);
+  }
   .qr-box canvas, .qr-box svg {
     width: 220px !important; height: 220px !important;
-    border-radius: 8px; background: #fff;
+    border-radius: 8px; background: #fff; display: block;
   }
   .qr-label {
     font-family: var(--mono); font-size: 13px; color: var(--muted);
     letter-spacing: .02em; text-align: center; word-break: break-all;
   }
   .qr-dl {
-    font-family: var(--sans); font-size: 13px; font-weight: 600;
-    color: var(--accent); background: transparent;
-    border: 1.5px solid var(--line); border-radius: 8px;
-    padding: 8px 16px; cursor: pointer; transition: border-color .15s, color .15s;
+    font-family: var(--sans); font-size: 13px; font-weight: 700;
+    letter-spacing: .03em;
+    color: var(--accent); background: rgba(255,255,255,0.5);
+    border: 1px solid var(--line-strong); border-radius: 11px;
+    padding: 10px 20px; cursor: pointer;
+    transition: border-color .18s, color .18s, background .18s, transform .12s;
   }
-  .qr-dl:hover { border-color: var(--accent); }
+  .qr-dl:hover { border-color: var(--accent); background: var(--accent-soft); transform: translateY(-1px); }
+
+  /* ── 結果面板 ─────────────────────────── */
+  .panel {
+    background: var(--glass);
+    -webkit-backdrop-filter: blur(var(--blur));
+    backdrop-filter: blur(var(--blur));
+    border: 1px solid var(--glass-line);
+    border-radius: 22px;
+    box-shadow: var(--shadow);
+    overflow: hidden;
+    min-height: 132px;
+  }
+
+  .result { padding: 0; animation: rise .5s cubic-bezier(.22,.61,.36,1) both; }
+  .result > * { animation: rise .5s cubic-bezier(.22,.61,.36,1) both; }
+  .result > *:nth-child(1) { animation-delay: .02s; }
+  .result > *:nth-child(2) { animation-delay: .08s; }
+  .result > *:nth-child(3) { animation-delay: .13s; }
+  .result > *:nth-child(4) { animation-delay: .18s; }
+  .result > *:nth-child(5) { animation-delay: .23s; }
+
+  .r-img {
+    width: 100%;
+    background: linear-gradient(160deg, #f3f1ec, #e9e6df);
+    border-bottom: 1px solid var(--line);
+    display: flex; align-items: center; justify-content: center;
+    min-height: 200px; max-height: 320px; overflow: hidden;
+  }
+  .r-img img {
+    width: 100%; height: 100%; max-height: 320px;
+    object-fit: contain; display: block;
+  }
+  .r-head {
+    padding: 20px 24px 0;
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  }
+  .r-code {
+    font-family: var(--mono); font-size: 14px; color: var(--muted);
+    letter-spacing: 0.04em;
+    padding: 5px 12px; border-radius: 999px;
+    background: rgba(38,42,44,0.05);
+  }
+  .r-name {
+    font-family: var(--serif);
+    font-size: 23px; font-weight: 700; line-height: 1.35;
+    padding: 16px 24px 2px; letter-spacing: .01em;
+  }
+  .r-qtyrow {
+    display: flex; align-items: baseline; gap: 12px; padding: 8px 24px 26px;
+  }
+  .r-qty {
+    font-family: var(--mono); font-size: 48px; font-weight: 700;
+    line-height: 1; letter-spacing: -0.02em;
+  }
+  .r-qty.low  { color: var(--warn); }
+  .r-qty.zero { color: var(--danger); }
+  .r-unit { color: var(--muted); font-size: 15px; }
+
+  .tag {
+    font-size: 11px; font-weight: 700; letter-spacing: .1em;
+    padding: 6px 12px; border-radius: 999px; align-self: center;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .tag::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+  .tag.low  { background: var(--warn-soft);  color: var(--warn); }
+  .tag.zero { background: var(--danger-soft); color: var(--danger); }
+
+  /* ── 狀態 (空 / 載入 / 錯誤) ──────────── */
+  .state {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    text-align: center; padding: 46px 24px; color: var(--muted);
+    min-height: 132px; gap: 10px;
+    animation: rise .45s cubic-bezier(.22,.61,.36,1) both;
+  }
+  .state .big { font-size: 15.5px; color: var(--ink); font-weight: 700; }
+  .state .icon {
+    font-size: 26px; opacity: .55; font-weight: 300;
+    width: 54px; height: 54px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(38,42,44,0.05); margin-bottom: 2px;
+  }
+  .state.error { color: var(--danger); }
+  .state.error .big { color: var(--danger); }
+  .state.error .icon { background: var(--danger-soft); color: var(--danger); opacity: 1; }
+
+  .spinner {
+    width: 26px; height: 26px; border: 2.5px solid var(--line-strong);
+    border-top-color: var(--accent); border-radius: 50%;
+    animation: spin .7s linear infinite;
+  }
+
+  /* ── 多筆提醒 ─────────────────────────── */
+  .multi {
+    border-top: 1px solid var(--line); padding: 16px 24px 20px;
+    font-size: 13px; color: var(--muted); line-height: 1.7;
+    background: rgba(176, 121, 31, 0.05);
+  }
+  .multi b { color: var(--warn); }
+  .multi ul { margin: 8px 0 0; padding-left: 18px; }
+  .multi li { margin: 4px 0; font-family: var(--mono); color: var(--ink); }
+
+  footer {
+    margin-top: 22px; font-size: 12px; color: var(--muted); text-align: center;
+    letter-spacing: .02em;
+    animation: rise .6s cubic-bezier(.22,.61,.36,1) .12s both;
+  }
+
+  /* ── 動畫 ─────────────────────────────── */
+  @keyframes rise { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
+  @keyframes qrIn { from { opacity: 0; transform: translateY(14px) scale(.97); } to { opacity: 1; transform: none; } }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: .001s !important; }
+    .spinner { animation: spin .7s linear infinite !important; }
+  }
+
+  @media (max-width: 480px) {
+    body { padding: 28px 14px 56px; }
+    h1 { font-size: 26px; }
+    .search input { font-size: 16px; }
+  }
 </style>
-<script src="qr-code-styling.js"></script>
+
+<!-- QR 產生器：改用 CDN，預覽與正式部署都可用。
+     若你要沿用專案內的本機檔，把下一行換回 <script src="qr-code-styling.js"></script> 即可。 -->
+<script src="https://unpkg.com/qr-code-styling@1.6.0-rc.1/lib/qr-code-styling.js"></script>
 </head>
+
 <body>
   <div class="wrap">
     <header>
@@ -183,9 +334,9 @@
   </div>
 
 <script>
-  const input = document.getElementById('code');
-  const btn = document.getElementById('go');
-  const panel = document.getElementById('panel');
+  const input  = document.getElementById('code');
+  const btn    = document.getElementById('go');
+  const panel  = document.getElementById('panel');
   const qrArea = document.getElementById('qrArea');
 
   // 部署在 Vercel 時，前端與 API 同網域，這裡留空字串即可。
@@ -193,11 +344,14 @@
   //   const BACKEND_URL = "https://你的專案.vercel.app";
   const BACKEND_URL = "";
 
-  // QR 碼中間的固定 LOGO 圖：放在主目錄的檔名。
-  // 之後把你的 LOGO 檔放進專案主目錄，檔名對上這裡即可（可改成 logo.png 等）。
+  // QR 碼中間的固定 LOGO 圖：放在主目錄的檔名（可改成 logo.png 等）。
   const LOGO_URL = "logo.png";
 
   const LOW_STOCK = 5; // 低於此數量標示提醒，可自行調整
+
+  // ⚠️ 展示用假資料：讓你在本機／預覽直接看到成品外觀。
+  //    正式部署請把 DEMO 改成 false，就會改打真正的 /api/lookup。
+  const DEMO = true;
 
   function esc(s) {
     return String(s).replace(/[&<>"']/g, c =>
@@ -225,6 +379,7 @@
 
   function showError(msg) {
     panel.innerHTML = `<div class="state error">
+      <div class="icon">!</div>
       <div class="big">查詢失敗</div>
       <div>${esc(msg)}</div>
     </div>`;
@@ -241,21 +396,24 @@
       <button id="qrDownload" class="qr-dl">下載 QR 圖</button>
     </div>`;
 
+    if (typeof QRCodeStyling === 'undefined') { return; } // 函式庫未載入時安全略過
+
     // qr-code-styling：LOGO 底下的碼點會自動空出（hideBackgroundDots），
-    // 不是硬蓋上去；搭配最高容錯等級 H，掃描更穩。
+    // 搭配最高容錯等級 H，掃描更穩。
     qrInstance = new QRCodeStyling({
       width: 600, height: 600, type: "canvas",
       data: code,
-      image: LOGO_URL,                       // 主目錄的固定 LOGO
+      image: LOGO_URL,
       margin: 0,
       qrOptions: { errorCorrectionLevel: "H" },
-      dotsOptions: { color: "#16202b", type: "square" },
+      dotsOptions: { color: "#262a2c", type: "rounded" },
       backgroundOptions: { color: "#ffffff" },
-      cornersSquareOptions: { color: "#16202b", type: "square" },
+      cornersSquareOptions: { color: "#35635a", type: "extra-rounded" },
+      cornersDotOptions: { color: "#35635a" },
       imageOptions: {
         crossOrigin: "anonymous",
-        hideBackgroundDots: true,            // 空出 LOGO 背後的點
-        imageSize: 0.28,                     // LOGO 佔比（0~1），可調整
+        hideBackgroundDots: true,
+        imageSize: 0.28,
         margin: 8,
       },
     });
@@ -292,7 +450,6 @@
     let imgBlock = '';
     if (r.image) {
       const src = imageSrc(r.image);
-      // 載入失敗（無圖或抓取失敗）就把整個圖片區塊移除
       imgBlock = `<div class="r-img"><img src="${esc(src)}" alt="${esc(r.name)}"
         onerror="this.closest('.r-img').remove()" /></div>`;
     }
@@ -312,12 +469,35 @@
     </div>`;
   }
 
+  // 展示用假資料
+  function demoData(code) {
+    const samples = {
+      'A-1024': { code: 'A-1024', name: '捷安隔間片簾 60×5 亞麻白', qty: '38',
+                  image: 'https://img.shoplineapp.com/media/image_clips/682da26479311800108ca4d6/original.jpg?1747821156' },
+      'B-2210': { code: 'B-2210', name: '木紋伸縮窗簾桿 25.4mm 胡桃', qty: '3', image: '' },
+      'C-0001': { code: 'C-0001', name: '遮光窗簾 霧灰 130×160', qty: '0', image: '' },
+    };
+    const r = samples[code.toUpperCase()] || { code: code, name: '示範商品 ' + code, qty: '17', image: '' };
+    return { found: true, result: r, all: [r] };
+  }
+
   async function lookup() {
     const code = input.value.trim();
     if (!code) { input.focus(); return; }
     btn.disabled = true;
     clearQR();
     showLoading();
+
+    if (DEMO) {
+      setTimeout(() => {
+        const data = demoData(code);
+        showResult(data);
+        renderQR(data.result.code);
+        btn.disabled = false;
+      }, 550);
+      return;
+    }
+
     try {
       const res = await fetch(BACKEND_URL + '/api/lookup?code=' + encodeURIComponent(code));
       if (res.status === 404) { showEmpty(code); return; }
