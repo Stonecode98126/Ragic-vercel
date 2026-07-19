@@ -101,11 +101,21 @@ def resolve_key(sample, configured, tokens):
 
 
 def first_image_value(record):
-    """找出圖片檔名（Ragic 檔案欄位值格式：hash@原始檔名.jpg）。"""
+    """找出圖片值。支援兩種：
+    1) 外部圖片網址（如 Shopline CDN），例如 https://.../1200x.webp?source_format=jpg
+    2) Ragic 內部上傳檔（格式 hash@名稱.jpg）
+    """
+    def looks_like_image(s):
+        s = s.strip()
+        if not s:
+            return False
+        path = s.split("?")[0].lower()   # 去掉查詢字串再看副檔名
+        return path.endswith(IMG_EXT)
+
     def pick(val):
         for part in re.split(r"[\n,]", str(val)):
             part = part.strip()
-            if "@" in part and part.lower().endswith(IMG_EXT):
+            if looks_like_image(part):
                 return part
         return None
 
