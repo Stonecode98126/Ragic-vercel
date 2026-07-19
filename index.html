@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>商品庫存查詢</title>
+<style>
+  :root {
+    --paper: #f5f6f4;
+    --card: #ffffff;
+    --ink: #16202b;
+    --muted: #6b7784;
+    --line: #dde2e0;
+    --accent: #0f6b63;      /* 深青 */
+    --accent-dark: #0b4f49;
+    --warn: #b45309;        /* 低庫存琥珀 */
+    --danger: #b91c1c;
+    --mono: ui-monospace, "SF Mono", "Roboto Mono", "Noto Sans Mono", monospace;
+    --sans: "Noto Sans TC", -apple-system, "Segoe UI", system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    font-family: var(--sans);
+    background: var(--paper);
+    color: var(--ink);
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    padding: 32px 16px 64px;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { width: 100%; max-width: 520px; }
+
+  header { margin-bottom: 24px; }
+  .eyebrow {
+    font-size: 12px; letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--accent); font-weight: 600; margin: 0 0 6px;
+  }
+  h1 { font-size: 24px; margin: 0; font-weight: 700; letter-spacing: -0.01em; }
+  .sub { color: var(--muted); font-size: 14px; margin: 6px 0 0; }
+
+  .search {
+    display: flex; gap: 8px; margin-bottom: 20px;
+  }
+  .search input {
+    flex: 1; font-family: var(--mono); font-size: 17px;
+    padding: 14px 16px; border: 1.5px solid var(--line); border-radius: 10px;
+    background: var(--card); color: var(--ink); outline: none;
+    transition: border-color .15s;
+  }
+  .search input:focus { border-color: var(--accent); }
+  .search button {
+    font-family: var(--sans); font-size: 15px; font-weight: 600;
+    padding: 0 22px; border: none; border-radius: 10px;
+    background: var(--accent); color: #fff; cursor: pointer;
+    transition: background .15s;
+  }
+  .search button:hover { background: var(--accent-dark); }
+  .search button:disabled { opacity: .5; cursor: default; }
+
+  .panel {
+    background: var(--card); border: 1px solid var(--line);
+    border-radius: 14px; overflow: hidden; min-height: 120px;
+  }
+
+  /* 結果卡 */
+  .result { padding: 0; }
+  .r-img {
+    width: 100%; background: #f0f2f0; border-bottom: 1px solid var(--line);
+    display: flex; align-items: center; justify-content: center;
+    min-height: 180px; max-height: 300px; overflow: hidden;
+  }
+  .r-img img {
+    width: 100%; height: 100%; max-height: 300px;
+    object-fit: contain; display: block;
+  }
+  .r-head {
+    padding: 18px 22px; border-bottom: 1px solid var(--line);
+    display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
+  }
+  .r-code {
+    font-family: var(--mono); font-size: 15px; color: var(--muted);
+    letter-spacing: 0.02em;
+  }
+  .r-name { font-size: 20px; font-weight: 700; padding: 20px 22px 4px; }
+  .r-qtyrow {
+    display: flex; align-items: baseline; gap: 10px; padding: 6px 22px 24px;
+  }
+  .r-qty {
+    font-family: var(--mono); font-size: 44px; font-weight: 700;
+    line-height: 1; letter-spacing: -0.02em;
+  }
+  .r-qty.low { color: var(--warn); }
+  .r-qty.zero { color: var(--danger); }
+  .r-unit { color: var(--muted); font-size: 15px; }
+  .tag {
+    font-size: 11px; font-weight: 700; letter-spacing: .06em;
+    padding: 4px 9px; border-radius: 999px; align-self: center;
+  }
+  .tag.low { background: #fef3e2; color: var(--warn); }
+  .tag.zero { background: #fde8e8; color: var(--danger); }
+
+  /* 狀態 */
+  .state {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    text-align: center; padding: 40px 22px; color: var(--muted);
+    min-height: 120px; gap: 8px;
+  }
+  .state .big { font-size: 15px; color: var(--ink); font-weight: 600; }
+  .state.empty .icon { font-size: 30px; opacity: .5; }
+  .state.error { color: var(--danger); }
+  .state.error .big { color: var(--danger); }
+
+  .spinner {
+    width: 22px; height: 22px; border: 2.5px solid var(--line);
+    border-top-color: var(--accent); border-radius: 50%;
+    animation: spin .7s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .multi {
+    border-top: 1px solid var(--line); padding: 12px 22px 18px;
+    font-size: 13px; color: var(--muted);
+  }
+  .multi b { color: var(--ink); }
+  .multi ul { margin: 8px 0 0; padding-left: 18px; }
+  .multi li { margin: 3px 0; font-family: var(--mono); }
+
+  footer { margin-top: 18px; font-size: 12px; color: var(--muted); text-align: center; }
+  @media (prefers-reduced-motion: reduce) { .spinner { animation: none; } }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <p class="eyebrow">Home Desyne · 庫存</p>
+      <h1>商品庫存查詢</h1>
+      <p class="sub">輸入商品編號，即時查詢名稱與庫存數量。</p>
+    </header>
+
+    <div class="search">
+      <input id="code" type="text" placeholder="輸入商品編號…"
+             autocomplete="off" autofocus inputmode="search" />
+      <button id="go">查詢</button>
+    </div>
+
+    <div class="panel" id="panel">
+      <div class="state empty">
+        <div class="icon">🔎</div>
+        <div class="big">尚未查詢</div>
+        <div>在上方輸入編號後按查詢或 Enter</div>
+      </div>
+    </div>
+
+    <footer>資料來源：Ragic · 庫存以系統即時數字為準</footer>
+  </div>
+
+<script>
+  const input = document.getElementById('code');
+  const btn = document.getElementById('go');
+  const panel = document.getElementById('panel');
+
+  // 部署在 Vercel 時，前端與 API 同網域，這裡留空字串即可。
+  // 若前端另放在別的網域（例如 GitHub Pages），填你的 Vercel 網址：
+  //   const BACKEND_URL = "https://你的專案.vercel.app";
+  const BACKEND_URL = "";
+
+  const LOW_STOCK = 5; // 低於此數量標示提醒，可自行調整
+
+  function esc(s) {
+    return String(s).replace(/[&<>"']/g, c =>
+      ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  function showLoading() {
+    panel.innerHTML = `<div class="state"><div class="spinner"></div><div>查詢中…</div></div>`;
+  }
+
+  function showEmpty(code) {
+    panel.innerHTML = `<div class="state empty">
+      <div class="icon">∅</div>
+      <div class="big">查無此編號</div>
+      <div>找不到「${esc(code)}」，請確認編號是否正確</div>
+    </div>`;
+  }
+
+  function showError(msg) {
+    panel.innerHTML = `<div class="state error">
+      <div class="big">查詢失敗</div>
+      <div>${esc(msg)}</div>
+    </div>`;
+  }
+
+  function qtyClass(qty) {
+    const n = parseFloat(String(qty).replace(/[^0-9.\-]/g, ''));
+    if (!isNaN(n)) {
+      if (n <= 0) return 'zero';
+      if (n < LOW_STOCK) return 'low';
+    }
+    return '';
+  }
+
+  function showResult(data) {
+    const r = data.result;
+    const cls = qtyClass(r.qty);
+    const tag = cls === 'zero'
+      ? '<span class="tag zero">缺貨</span>'
+      : cls === 'low' ? '<span class="tag low">低庫存</span>' : '';
+
+    let multi = '';
+    if (data.all && data.all.length > 1) {
+      multi = `<div class="multi"><b>注意：</b>有 ${data.all.length} 筆相同編號的資料：<ul>` +
+        data.all.map(x => `<li>${esc(x.name)} — 庫存 ${esc(x.qty)}</li>`).join('') +
+        `</ul></div>`;
+    }
+
+    let imgBlock = '';
+    if (r.image) {
+      const src = BACKEND_URL + '/api/image?f=' + encodeURIComponent(r.image);
+      // 載入失敗（無圖或抓取失敗）就把整個圖片區塊移除
+      imgBlock = `<div class="r-img"><img src="${esc(src)}" alt="${esc(r.name)}"
+        onerror="this.closest('.r-img').remove()" /></div>`;
+    }
+
+    panel.innerHTML = `<div class="result">
+      ${imgBlock}
+      <div class="r-head">
+        <span class="r-code">${esc(r.code)}</span>
+        ${tag}
+      </div>
+      <div class="r-name">${esc(r.name) || '（無名稱）'}</div>
+      <div class="r-qtyrow">
+        <span class="r-qty ${cls}">${esc(r.qty) || '—'}</span>
+        <span class="r-unit">庫存數量</span>
+      </div>
+      ${multi}
+    </div>`;
+  }
+
+  async function lookup() {
+    const code = input.value.trim();
+    if (!code) { input.focus(); return; }
+    btn.disabled = true;
+    showLoading();
+    try {
+      const res = await fetch(BACKEND_URL + '/api/lookup?code=' + encodeURIComponent(code));
+      if (res.status === 404) { showEmpty(code); return; }
+      const data = await res.json();
+      if (!res.ok) { showError(data.error || data.detail || ('HTTP ' + res.status)); return; }
+      if (!data.found) { showEmpty(code); return; }
+      showResult(data);
+    } catch (e) {
+      showError('無法連線到伺服器');
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  btn.addEventListener('click', lookup);
+  input.addEventListener('keydown', e => { if (e.key === 'Enter') lookup(); });
+</script>
+</body>
+</html>
