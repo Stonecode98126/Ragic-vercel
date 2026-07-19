@@ -143,6 +143,13 @@
     font-family: var(--mono); font-size: 13px; color: var(--muted);
     letter-spacing: .02em; text-align: center; word-break: break-all;
   }
+  .qr-dl {
+    font-family: var(--sans); font-size: 13px; font-weight: 600;
+    color: var(--accent); background: transparent;
+    border: 1.5px solid var(--line); border-radius: 8px;
+    padding: 8px 16px; cursor: pointer; transition: border-color .15s, color .15s;
+  }
+  .qr-dl:hover { border-color: var(--accent); }
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js"></script>
 </head>
@@ -183,6 +190,10 @@
   // 若前端另放在別的網域（例如 GitHub Pages），填你的 Vercel 網址：
   //   const BACKEND_URL = "https://你的專案.vercel.app";
   const BACKEND_URL = "";
+
+  // QR 碼中間的固定 LOGO 圖：放在主目錄的檔名。
+  // 之後把你的 LOGO 檔放進專案主目錄，檔名對上這裡即可（可改成 logo.png 等）。
+  const LOGO_URL = "logo.png";
 
   const LOW_STOCK = 5; // 低於此數量標示提醒，可自行調整
 
@@ -243,32 +254,47 @@
     ctx.restore();
   }
 
-  function renderQR(code, imgUrl) {
+  // 以「完整置中」方式畫圖（類似 object-fit: contain），LOGO 不會被裁切
+  function drawContain(ctx, img, x, y, w, h) {
+    const ir = img.width / img.height, br = w / h;
+    let dw = w, dh = h;
+    if (ir > br) dh = w / ir; else dw = h * ir;
+    ctx.drawImage(img, x + (w - dw) / 2, y + (h - dh) / 2, dw, dh);
+  }
+
+  function renderQR(code) {
     qrArea.innerHTML = `<div class="qr-card">
       <canvas id="qrCanvas"></canvas>
       <div class="qr-label">${esc(code)}</div>
+      <button id="qrDownload" class="qr-dl">下載 QR 圖</button>
     </div>`;
     const canvas = document.getElementById('qrCanvas');
-    const size = 240;
-    // 高容錯等級 H，才能在中間放圖還能掃得到
+    const size = 600;  // 內部高解析度，印貼紙才清晰（畫面上以 CSS 縮小顯示）
+    // 高容錯等級 H，才能在中間放 LOGO 還能掃得到
     new QRious({ element: canvas, value: code, size: size, level: 'H',
       background: '#ffffff', foreground: '#16202b' });
 
-    if (imgUrl) {
-      const img = new Image();
-      img.onload = () => {
-        const ctx = canvas.getContext('2d');
-        const box = Math.round(size * 0.26);      // 中心圖佔約 26%
-        const pad = Math.round(box * 0.14);
-        const x = (size - box) / 2, y = (size - box) / 2;
-        ctx.fillStyle = '#ffffff';                // 白色襯底
-        roundRect(ctx, x - pad, y - pad, box + pad * 2, box + pad * 2, 8);
-        ctx.fill();
-        drawCover(ctx, img, x, y, box, box, 6);   // 置中畫上商品圖
-      };
-      img.onerror = () => {};                     // 沒圖就純 QR
-      img.src = imgUrl;
-    }
+    // 中間固定放主目錄的 LOGO（完整顯示、不裁切）；檔案不存在就只顯示純 QR
+    const img = new Image();
+    img.onload = () => {
+      const ctx = canvas.getContext('2d');
+      const box = Math.round(size * 0.24);      // LOGO 佔約 24%
+      const pad = Math.round(box * 0.12);
+      const x = (size - box) / 2, y = (size - box) / 2;
+      ctx.fillStyle = '#ffffff';                // 白色襯底
+      roundRect(ctx, x - pad, y - pad, box + pad * 2, box + pad * 2, 14);
+      ctx.fill();
+      drawContain(ctx, img, x, y, box, box);    // 置中畫上完整 LOGO
+    };
+    img.onerror = () => {};                     // 沒放 LOGO 就純 QR
+    img.src = LOGO_URL;
+
+    document.getElementById('qrDownload').addEventListener('click', () => {
+      const a = document.createElement('a');
+      a.download = (code || 'qrcode') + '.png';
+      a.href = canvas.toDataURL('image/png');
+      a.click();
+    });
   }
 
   function qtyClass(qty) {
@@ -330,8 +356,7 @@
       if (!res.ok) { showError(data.error || data.detail || ('HTTP ' + res.status)); return; }
       if (!data.found) { showEmpty(code); return; }
       showResult(data);
-      const imgUrl = data.result.image ? imageSrc(data.result.image) : null;
-      renderQR(data.result.code, imgUrl);
+      renderQR(data.result.code);
     } catch (e) {
       showError('無法連線到伺服器');
     } finally {
