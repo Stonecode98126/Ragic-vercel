@@ -136,8 +136,10 @@
     background: var(--card); border: 1px solid var(--line); border-radius: 14px;
     padding: 18px; display: flex; flex-direction: column; align-items: center; gap: 10px;
   }
-  .qr-card canvas {
-    width: 220px; height: 220px; border-radius: 8px; background: #fff;
+  .qr-box { width: 220px; height: 220px; }
+  .qr-box canvas, .qr-box svg {
+    width: 220px !important; height: 220px !important;
+    border-radius: 8px; background: #fff;
   }
   .qr-label {
     font-family: var(--mono); font-size: 13px; color: var(--muted);
@@ -151,7 +153,7 @@
   }
   .qr-dl:hover { border-color: var(--accent); }
 </style>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js"></script>
+<script src="qr-code-styling.js"></script>
 </head>
 <body>
   <div class="wrap">
@@ -230,70 +232,37 @@
 
   function clearQR() { qrArea.innerHTML = ''; }
 
-  // 圓角矩形路徑
-  function roundRect(ctx, x, y, w, h, r) {
-    ctx.beginPath();
-    ctx.moveTo(x + r, y);
-    ctx.arcTo(x + w, y, x + w, y + h, r);
-    ctx.arcTo(x + w, y + h, x, y + h, r);
-    ctx.arcTo(x, y + h, x, y, r);
-    ctx.arcTo(x, y, x + w, y, r);
-    ctx.closePath();
-  }
-
-  // 以「填滿裁切」方式把圖片畫進指定方框（類似 object-fit: cover）
-  function drawCover(ctx, img, x, y, w, h, radius) {
-    const ir = img.width / img.height, br = w / h;
-    let sx = 0, sy = 0, sw = img.width, sh = img.height;
-    if (ir > br) { sw = img.height * br; sx = (img.width - sw) / 2; }
-    else { sh = img.width / br; sy = (img.height - sh) / 2; }
-    ctx.save();
-    roundRect(ctx, x, y, w, h, radius);
-    ctx.clip();
-    ctx.drawImage(img, sx, sy, sw, sh, x, y, w, h);
-    ctx.restore();
-  }
-
-  // 以「完整置中」方式畫圖（類似 object-fit: contain），LOGO 不會被裁切
-  function drawContain(ctx, img, x, y, w, h) {
-    const ir = img.width / img.height, br = w / h;
-    let dw = w, dh = h;
-    if (ir > br) dh = w / ir; else dw = h * ir;
-    ctx.drawImage(img, x + (w - dw) / 2, y + (h - dh) / 2, dw, dh);
-  }
+  let qrInstance = null;
 
   function renderQR(code) {
     qrArea.innerHTML = `<div class="qr-card">
-      <canvas id="qrCanvas"></canvas>
+      <div id="qrBox" class="qr-box"></div>
       <div class="qr-label">${esc(code)}</div>
       <button id="qrDownload" class="qr-dl">下載 QR 圖</button>
     </div>`;
-    const canvas = document.getElementById('qrCanvas');
-    const size = 600;  // 內部高解析度，印貼紙才清晰（畫面上以 CSS 縮小顯示）
-    // 高容錯等級 H，才能在中間放 LOGO 還能掃得到
-    new QRious({ element: canvas, value: code, size: size, level: 'H',
-      background: '#ffffff', foreground: '#16202b' });
 
-    // 中間固定放主目錄的 LOGO（完整顯示、不裁切）；檔案不存在就只顯示純 QR
-    const img = new Image();
-    img.onload = () => {
-      const ctx = canvas.getContext('2d');
-      const box = Math.round(size * 0.24);      // LOGO 佔約 24%
-      const pad = Math.round(box * 0.12);
-      const x = (size - box) / 2, y = (size - box) / 2;
-      ctx.fillStyle = '#ffffff';                // 白色襯底
-      roundRect(ctx, x - pad, y - pad, box + pad * 2, box + pad * 2, 14);
-      ctx.fill();
-      drawContain(ctx, img, x, y, box, box);    // 置中畫上完整 LOGO
-    };
-    img.onerror = () => {};                     // 沒放 LOGO 就純 QR
-    img.src = LOGO_URL;
+    // qr-code-styling：LOGO 底下的碼點會自動空出（hideBackgroundDots），
+    // 不是硬蓋上去；搭配最高容錯等級 H，掃描更穩。
+    qrInstance = new QRCodeStyling({
+      width: 600, height: 600, type: "canvas",
+      data: code,
+      image: LOGO_URL,                       // 主目錄的固定 LOGO
+      margin: 0,
+      qrOptions: { errorCorrectionLevel: "H" },
+      dotsOptions: { color: "#16202b", type: "square" },
+      backgroundOptions: { color: "#ffffff" },
+      cornersSquareOptions: { color: "#16202b", type: "square" },
+      imageOptions: {
+        crossOrigin: "anonymous",
+        hideBackgroundDots: true,            // 空出 LOGO 背後的點
+        imageSize: 0.28,                     // LOGO 佔比（0~1），可調整
+        margin: 8,
+      },
+    });
+    qrInstance.append(document.getElementById('qrBox'));
 
     document.getElementById('qrDownload').addEventListener('click', () => {
-      const a = document.createElement('a');
-      a.download = (code || 'qrcode') + '.png';
-      a.href = canvas.toDataURL('image/png');
-      a.click();
+      qrInstance.download({ name: code || 'qrcode', extension: 'png' });
     });
   }
 
