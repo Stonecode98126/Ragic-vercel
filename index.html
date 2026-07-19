@@ -152,11 +152,6 @@
   const btn = document.getElementById('go');
   const panel = document.getElementById('panel');
 
-  // 部署在 Vercel 時，前端與 API 同網域，這裡留空字串即可。
-  // 若前端另放在別的網域（例如 GitHub Pages），填你的 Vercel 網址：
-  //   const BACKEND_URL = "https://你的專案.vercel.app";
-  const BACKEND_URL = "";
-
   const LOW_STOCK = 5; // 低於此數量標示提醒，可自行調整
 
   function esc(s) {
@@ -226,7 +221,7 @@
     btn.disabled = true;
     showLoading();
     try {
-      const res = await fetch(BACKEND_URL + '/api/lookup?code=' + encodeURIComponent(code));
+      const res = await fetch('/api/lookup?code=' + encodeURIComponent(code));
       if (res.status === 404) { showEmpty(code); return; }
       const data = await res.json();
       if (!res.ok) { showError(data.detail || ('HTTP ' + res.status)); return; }
