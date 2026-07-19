@@ -299,11 +299,71 @@
     h1 { font-size: 26px; }
     .search input { font-size: 16px; }
   }
+
+  /* ── 掃描按鈕 + 相機彈窗 ──────────────── */
+  .scan-btn {
+    flex: 0 0 auto;
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 54px; border: 1px solid var(--glass-line); border-radius: 14px;
+    background: var(--glass-strong);
+    -webkit-backdrop-filter: blur(var(--blur)); backdrop-filter: blur(var(--blur));
+    color: var(--accent); cursor: pointer; box-shadow: var(--shadow);
+    transition: border-color .18s, color .18s, transform .12s, background .18s;
+  }
+  .scan-btn:hover { border-color: var(--accent); background: var(--accent-soft); transform: translateY(-1px); }
+  .scan-btn:active { transform: translateY(0); }
+  .scan-btn svg { width: 24px; height: 24px; }
+
+  .scan-modal {
+    position: fixed; inset: 0; z-index: 50;
+    display: none; align-items: center; justify-content: center;
+    padding: 20px;
+    background: rgba(30, 33, 34, 0.55);
+    -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+  }
+  .scan-modal.open { display: flex; animation: rise .28s ease both; }
+  .scan-sheet {
+    width: 100%; max-width: 380px;
+    background: var(--glass-strong);
+    -webkit-backdrop-filter: blur(var(--blur)); backdrop-filter: blur(var(--blur));
+    border: 1px solid var(--glass-line); border-radius: 22px;
+    box-shadow: var(--shadow); padding: 16px;
+  }
+  .scan-head {
+    display: flex; align-items: center; justify-content: space-between;
+    font-family: var(--serif); font-weight: 700; font-size: 17px;
+    padding: 2px 2px 12px; color: var(--ink);
+  }
+  .scan-close {
+    border: none; background: rgba(38,42,44,0.06); color: var(--ink);
+    width: 32px; height: 32px; border-radius: 10px; cursor: pointer; font-size: 14px;
+  }
+  .scan-close:hover { background: rgba(38,42,44,0.12); }
+  .scan-reader {
+    width: 100%; border-radius: 16px; overflow: hidden; background: #000;
+    aspect-ratio: 1 / 1;
+  }
+  .scan-reader video { width: 100% !important; height: 100% !important; object-fit: cover; display: block; }
+  .scan-reader img[alt="Info icon"], .scan-reader { border: none; }
+  .scan-status {
+    margin-top: 12px; text-align: center; font-size: 13.5px; color: var(--muted);
+    min-height: 20px; line-height: 1.5;
+  }
+  .scan-status.err { color: var(--danger); }
+  .scan-manual {
+    margin-top: 12px; width: 100%;
+    font-family: var(--sans); font-size: 14px; font-weight: 700;
+    color: var(--accent); background: rgba(255,255,255,0.5);
+    border: 1px solid var(--line-strong); border-radius: 12px;
+    padding: 11px; cursor: pointer; transition: background .18s, border-color .18s;
+  }
+  .scan-manual:hover { background: var(--accent-soft); border-color: var(--accent); }
 </style>
 
-<!-- QR 產生器：改用 CDN，預覽與正式部署都可用。
-     若你要沿用專案內的本機檔，把下一行換回 <script src="qr-code-styling.js"></script> 即可。 -->
-<script src="https://unpkg.com/qr-code-styling@1.6.0-rc.1/lib/qr-code-styling.js"></script>
+<!-- QR 產生器：本地函式庫，不依賴外部網站 -->
+<script src="qr-code-styling.js"></script>
+<!-- 相機掃描 QR：本地函式庫，不依賴外部網站 -->
+<script src="html5-qrcode.min.js"></script>
 </head>
 
 <body>
@@ -318,6 +378,16 @@
       <input id="code" type="text" placeholder="輸入商品編號…"
              autocomplete="off" autofocus inputmode="search" />
       <button id="go">查詢</button>
+      <button id="scanBtn" class="scan-btn" title="掃描 QR" aria-label="掃描 QR">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 8V5a2 2 0 0 1 2-2h3"/>
+          <path d="M21 8V5a2 2 0 0 0-2-2h-3"/>
+          <path d="M3 16v3a2 2 0 0 0 2 2h3"/>
+          <path d="M21 16v3a2 2 0 0 1-2 2h-3"/>
+          <rect x="7.5" y="7.5" width="9" height="9" rx="1.5"/>
+        </svg>
+      </button>
     </div>
 
     <div id="qrArea"></div>
@@ -331,6 +401,19 @@
     </div>
 
     <footer>資料來源：Ragic · 庫存以系統即時數字為準</footer>
+  </div>
+
+  <!-- 掃描彈窗 -->
+  <div id="scanModal" class="scan-modal" aria-hidden="true">
+    <div class="scan-sheet">
+      <div class="scan-head">
+        <span>掃描商品 QR</span>
+        <button id="scanClose" class="scan-close" aria-label="關閉">✕</button>
+      </div>
+      <div id="reader" class="scan-reader"></div>
+      <div id="scanStatus" class="scan-status">啟動相機中…</div>
+      <button id="scanManual" class="scan-manual">改用手動輸入</button>
+    </div>
   </div>
 
 <script>
@@ -348,10 +431,6 @@
   const LOGO_URL = "logo.png";
 
   const LOW_STOCK = 5; // 低於此數量標示提醒，可自行調整
-
-  // ⚠️ 展示用假資料：讓你在本機／預覽直接看到成品外觀。
-  //    正式部署請把 DEMO 改成 false，就會改打真正的 /api/lookup。
-  const DEMO = true;
 
   function esc(s) {
     return String(s).replace(/[&<>"']/g, c =>
@@ -469,34 +548,12 @@
     </div>`;
   }
 
-  // 展示用假資料
-  function demoData(code) {
-    const samples = {
-      'A-1024': { code: 'A-1024', name: '捷安隔間片簾 60×5 亞麻白', qty: '38',
-                  image: 'https://img.shoplineapp.com/media/image_clips/682da26479311800108ca4d6/original.jpg?1747821156' },
-      'B-2210': { code: 'B-2210', name: '木紋伸縮窗簾桿 25.4mm 胡桃', qty: '3', image: '' },
-      'C-0001': { code: 'C-0001', name: '遮光窗簾 霧灰 130×160', qty: '0', image: '' },
-    };
-    const r = samples[code.toUpperCase()] || { code: code, name: '示範商品 ' + code, qty: '17', image: '' };
-    return { found: true, result: r, all: [r] };
-  }
-
   async function lookup() {
     const code = input.value.trim();
     if (!code) { input.focus(); return; }
     btn.disabled = true;
     clearQR();
     showLoading();
-
-    if (DEMO) {
-      setTimeout(() => {
-        const data = demoData(code);
-        showResult(data);
-        renderQR(data.result.code);
-        btn.disabled = false;
-      }, 550);
-      return;
-    }
 
     try {
       const res = await fetch(BACKEND_URL + '/api/lookup?code=' + encodeURIComponent(code));
@@ -515,6 +572,124 @@
 
   btn.addEventListener('click', lookup);
   input.addEventListener('keydown', e => { if (e.key === 'Enter') lookup(); });
+
+  /* ── 相機掃描 QR ─────────────────────────
+     用 html5-qrcode 處理 iOS/Android 各瀏覽器差異與相機權限。
+     注意：相機需在 HTTPS（或 localhost）下才能使用；Vercel 網址是 https，沒問題。
+  */
+  const scanModal  = document.getElementById('scanModal');
+  const scanBtn    = document.getElementById('scanBtn');
+  const scanClose  = document.getElementById('scanClose');
+  const scanManual = document.getElementById('scanManual');
+  let html5Qr = null;
+  let scanHandled = false;
+
+  function setScanStatus(msg, isErr) {
+    const el = document.getElementById('scanStatus');
+    if (el) { el.textContent = msg; el.classList.toggle('err', !!isErr); }
+  }
+
+  // 掃到的內容若是網址，嘗試取出 code 參數或最後一段；否則原樣當編號
+  function parseScanned(text) {
+    text = String(text).trim();
+    if (/^https?:\/\//i.test(text)) {
+      try {
+        const u = new URL(text);
+        const c = u.searchParams.get('code') || u.searchParams.get('q');
+        if (c) return c.trim();
+        const seg = u.pathname.split('/').filter(Boolean).pop();
+        if (seg) return decodeURIComponent(seg);
+      } catch (_) {}
+    }
+    return text;
+  }
+
+  async function stopScanner() {
+    if (html5Qr) {
+      try { await html5Qr.stop(); } catch (_) {}
+      try { html5Qr.clear(); } catch (_) {}
+      html5Qr = null;
+    }
+  }
+
+  function closeScannerUI() {
+    scanModal.classList.remove('open');
+    scanModal.setAttribute('aria-hidden', 'true');
+    document.body.style.overflow = '';
+  }
+
+  async function closeScanner() {
+    await stopScanner();
+    closeScannerUI();
+  }
+
+  function handleCamError(err) {
+    const name = (err && err.name) || '';
+    const secure = location.protocol === 'https:' || location.hostname === 'localhost';
+    let msg;
+    if (!secure) {
+      msg = '相機需要 HTTPS 才能使用。請用正式的 https 網址開啟。';
+    } else if (name === 'NotAllowedError' || /permission|denied/i.test(String(err))) {
+      msg = '相機權限被拒。iPhone：設定 → Safari →（或該瀏覽器）相機，允許本網站；' +
+            'Android：點網址列左側鎖頭 → 權限 → 相機，允許後再試。';
+    } else if (name === 'NotFoundError' || name === 'DevicesNotFoundError') {
+      msg = '找不到相機裝置。';
+    } else if (name === 'NotReadableError' || name === 'TrackStartError') {
+      msg = '相機被其他 App 占用，請先關閉其他使用相機的程式再試。';
+    } else {
+      msg = '無法啟動相機：' + (err && err.message ? err.message : '未知錯誤') +
+            '。若是在 LINE／FB 內開啟，請改用 Safari 或 Chrome 開啟本頁。';
+    }
+    setScanStatus(msg, true);
+  }
+
+  function onScanSuccess(decodedText) {
+    if (scanHandled) return;      // 只處理第一次成功
+    scanHandled = true;
+    const code = parseScanned(decodedText);
+    stopScanner().finally(() => {
+      closeScannerUI();
+      input.value = code;
+      lookup();                    // 回到主頁，顯示該商品資料
+    });
+  }
+
+  async function openScanner() {
+    if (typeof Html5Qrcode === 'undefined') {
+      scanModal.classList.add('open');
+      setScanStatus('掃描元件未載入，請重新整理頁面再試。', true);
+      return;
+    }
+    scanHandled = false;
+    scanModal.classList.add('open');
+    scanModal.setAttribute('aria-hidden', 'false');
+    document.body.style.overflow = 'hidden';
+    setScanStatus('啟動相機中…');
+
+    html5Qr = new Html5Qrcode('reader', { verbose: false });
+    const config = { fps: 12, qrbox: { width: 230, height: 230 }, aspectRatio: 1.0 };
+    try {
+      // 優先用後鏡頭
+      await html5Qr.start({ facingMode: 'environment' }, config, onScanSuccess);
+      setScanStatus('將商品 QR 對準框內');
+    } catch (err) {
+      try {
+        // 後鏡頭失敗（如筆電）→ 退而用任一鏡頭
+        await html5Qr.start({ facingMode: 'user' }, config, onScanSuccess);
+        setScanStatus('將商品 QR 對準框內');
+      } catch (err2) {
+        handleCamError(err2 || err);
+      }
+    }
+  }
+
+  scanBtn.addEventListener('click', openScanner);
+  scanClose.addEventListener('click', closeScanner);
+  scanManual.addEventListener('click', () => { closeScanner(); input.focus(); });
+  scanModal.addEventListener('click', e => { if (e.target === scanModal) closeScanner(); });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && scanModal.classList.contains('open')) closeScanner();
+  });
 </script>
 </body>
 </html>
