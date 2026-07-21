@@ -244,6 +244,83 @@
   .tag.low  { background: var(--warn-soft);  color: var(--warn); }
   .tag.zero { background: var(--danger-soft); color: var(--danger); }
 
+  /* ── 庫存調整區 ───────────────────────── */
+  .qty-editor { border-top: 1px solid var(--line); padding: 18px 24px 22px; }
+
+  .stepper {
+    display: grid; grid-template-columns: repeat(4, 1fr);
+    gap: 8px; margin-top: 4px;
+  }
+  .stepper button {
+    font-family: var(--mono); font-size: 16px; font-weight: 700;
+    color: var(--accent); background: rgba(255,255,255,0.5);
+    border: 1px solid var(--line-strong); border-radius: 12px;
+    padding: 12px 0; cursor: pointer;
+    transition: border-color .15s, background .15s, transform .1s, color .15s;
+    -webkit-user-select: none; user-select: none;
+  }
+  .stepper button:hover  { border-color: var(--accent); background: var(--accent-soft); }
+  .stepper button:active { transform: translateY(1px); }
+  .stepper button.minus  { color: var(--danger); }
+  .stepper button.minus:hover { border-color: var(--danger); background: var(--danger-soft); }
+
+  /* 變化提示：原本 X → 調整後 Y */
+  .change-note {
+    margin-top: 14px; font-size: 14px; line-height: 1.6; color: var(--muted);
+    display: none;
+  }
+  .change-note.show { display: block; animation: rise .3s ease both; }
+  .change-note .from { font-family: var(--mono); color: var(--ink); font-weight: 700; }
+  .change-note .arrow { margin: 0 8px; color: var(--muted); }
+  .change-note .to {
+    font-family: var(--mono); font-weight: 700; color: var(--accent);
+    padding: 2px 10px; border-radius: 8px; background: var(--accent-soft);
+  }
+  .change-note .to.up   { color: var(--accent); background: var(--accent-soft); }
+  .change-note .to.down { color: var(--danger); background: var(--danger-soft); }
+  .change-note .delta { font-family: var(--mono); font-size: 13px; margin-left: 8px; }
+
+  /* 存檔 / 還原 按鈕列 */
+  .save-row { display: none; gap: 8px; margin-top: 14px; }
+  .save-row.show { display: flex; }
+  .save-row button {
+    flex: 1; font-family: var(--sans); font-size: 15px; font-weight: 700;
+    letter-spacing: .04em; border-radius: 12px; padding: 13px 0; cursor: pointer;
+    transition: filter .15s, background .15s, border-color .15s, transform .1s;
+  }
+  .save-row button:active { transform: translateY(1px); }
+  .save-btn  { flex: 2 !important; color: #fff; background: var(--accent); border: 1px solid var(--accent-dark); }
+  .save-btn:hover { filter: brightness(1.06); }
+  .save-btn:disabled { opacity: .45; cursor: not-allowed; filter: none; }
+  .reset-btn { color: var(--muted); background: rgba(255,255,255,0.5); border: 1px solid var(--line-strong); }
+  .reset-btn:hover { border-color: var(--ink); color: var(--ink); }
+
+  /* 存檔前的確認提醒 */
+  .save-confirm {
+    display: none; margin-top: 14px; padding: 14px 16px;
+    border: 1px solid var(--line-strong); border-radius: 14px;
+    background: var(--warn-soft);
+  }
+  .save-confirm.show { display: block; animation: rise .28s ease both; }
+  .save-confirm .msg { font-size: 14px; line-height: 1.6; color: var(--ink); }
+  .save-confirm .msg b { font-family: var(--mono); }
+  .save-confirm-row { display: flex; gap: 8px; margin-top: 12px; }
+  .save-confirm-row button {
+    flex: 1; font-family: var(--sans); font-size: 14.5px; font-weight: 700;
+    border-radius: 11px; padding: 11px 0; cursor: pointer; transition: filter .15s, background .15s, border-color .15s;
+  }
+  .confirm-yes { color: #fff; background: var(--accent); border: 1px solid var(--accent-dark); }
+  .confirm-yes:hover { filter: brightness(1.06); }
+  .confirm-yes:disabled { opacity: .5; cursor: progress; }
+  .confirm-no  { color: var(--muted); background: rgba(255,255,255,0.6); border: 1px solid var(--line-strong); }
+  .confirm-no:hover { border-color: var(--ink); color: var(--ink); }
+
+  /* 存檔結果狀態列 */
+  .save-status { margin-top: 12px; font-size: 13.5px; line-height: 1.5; min-height: 18px; display: none; }
+  .save-status.show { display: block; animation: rise .28s ease both; }
+  .save-status.ok  { color: var(--accent); font-weight: 700; }
+  .save-status.err { color: var(--danger); font-weight: 700; }
+
   /* ── 狀態 (空 / 載入 / 錯誤) ──────────── */
   .state {
     display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -512,16 +589,18 @@
     return '';
   }
 
+  // 把庫存字串解析成數字（取不到就當 0）
+  function toQtyNum(v) {
+    const n = parseFloat(String(v == null ? '' : v).replace(/[^0-9.\-]/g, ''));
+    return isNaN(n) ? 0 : n;
+  }
+
   function showResult(data) {
     const r = data.result;
-    const cls = qtyClass(r.qty);
-    const tag = cls === 'zero'
-      ? '<span class="tag zero">缺貨</span>'
-      : cls === 'low' ? '<span class="tag low">低庫存</span>' : '';
 
     let multi = '';
     if (data.all && data.all.length > 1) {
-      multi = `<div class="multi"><b>注意：</b>有 ${data.all.length} 筆相同編號的資料：<ul>` +
+      multi = `<div class="multi"><b>注意：</b>有 ${data.all.length} 筆相同編號的資料，以下編修只會套用到第一筆：<ul>` +
         data.all.map(x => `<li>${esc(x.name)} — 庫存 ${esc(x.qty)}</li>`).join('') +
         `</ul></div>`;
     }
@@ -537,15 +616,167 @@
       ${imgBlock}
       <div class="r-head">
         <span class="r-code">${esc(r.code)}</span>
-        ${tag}
+        <span id="stockTag"></span>
       </div>
       <div class="r-name">${esc(r.name) || '（無名稱）'}</div>
-      <div class="r-qtyrow">
-        <span class="r-qty ${cls}">${esc(r.qty) || '—'}</span>
-        <span class="r-unit">庫存數量</span>
+
+      <div class="qty-editor">
+        <div class="r-qtyrow">
+          <span class="r-qty" id="qtyNow">—</span>
+          <span class="r-unit">庫存數量</span>
+        </div>
+
+        <div class="stepper">
+          <button type="button" class="minus" data-d="-10">−10</button>
+          <button type="button" class="minus" data-d="-1">−1</button>
+          <button type="button" data-d="1">＋1</button>
+          <button type="button" data-d="10">＋10</button>
+        </div>
+
+        <div class="change-note" id="changeNote"></div>
+
+        <div class="save-row" id="saveRow">
+          <button type="button" class="save-btn" id="saveBtn">存檔</button>
+          <button type="button" class="reset-btn" id="resetBtn">還原</button>
+        </div>
+
+        <div class="save-confirm" id="saveConfirm">
+          <div class="msg" id="saveConfirmMsg"></div>
+          <div class="save-confirm-row">
+            <button type="button" class="confirm-yes" id="confirmYes">確定存檔</button>
+            <button type="button" class="confirm-no"  id="confirmNo">取消</button>
+          </div>
+        </div>
+
+        <div class="save-status" id="saveStatus"></div>
       </div>
+
       ${multi}
     </div>`;
+
+    mountQtyEditor(r.code, toQtyNum(r.qty));
+  }
+
+  /* ── 庫存加減 + 存檔 ─────────────────────
+     · ＋1／＋10／−1／−10 調整「待存數量」
+     · 顯示「原本 X → 調整後 Y」，並提醒是否存檔
+     · 按存檔會再跳一次確認，確定後才寫回 Ragic
+  */
+  function mountQtyEditor(code, origQty) {
+    let orig    = origQty;   // 目前資料庫裡的數字
+    let pending = origQty;   // 加減後、尚未存檔的數字
+
+    const qtyNow      = document.getElementById('qtyNow');
+    const stockTag    = document.getElementById('stockTag');
+    const changeNote  = document.getElementById('changeNote');
+    const saveRow     = document.getElementById('saveRow');
+    const saveBtn     = document.getElementById('saveBtn');
+    const resetBtn    = document.getElementById('resetBtn');
+    const saveConfirm = document.getElementById('saveConfirm');
+    const confirmMsg  = document.getElementById('saveConfirmMsg');
+    const confirmYes  = document.getElementById('confirmYes');
+    const confirmNo   = document.getElementById('confirmNo');
+    const saveStatus  = document.getElementById('saveStatus');
+
+    function tagFor(n) {
+      if (n <= 0)         return { cls: 'zero', text: '缺貨' };
+      if (n < LOW_STOCK)  return { cls: 'low',  text: '低庫存' };
+      return null;
+    }
+
+    function render() {
+      // 大數字 + 顏色
+      const t = tagFor(pending);
+      qtyNow.textContent = pending;
+      qtyNow.className = 'r-qty' + (t ? ' ' + t.cls : '');
+      stockTag.innerHTML = t ? `<span class="tag ${t.cls}">${t.text}</span>` : '';
+
+      const diff = pending - orig;
+      if (diff === 0) {
+        changeNote.classList.remove('show');
+        saveRow.classList.remove('show');
+      } else {
+        const dir = diff > 0 ? 'up' : 'down';
+        const sign = diff > 0 ? '＋' : '−';
+        changeNote.innerHTML =
+          `庫存將從 <span class="from">${orig}</span>` +
+          `<span class="arrow">→</span>` +
+          `<span class="to ${dir}">${pending}</span>` +
+          `<span class="delta ${dir === 'up' ? '' : ''}">（${sign}${Math.abs(diff)}）</span>` +
+          `　尚未存檔`;
+        changeNote.classList.add('show');
+        saveRow.classList.add('show');
+      }
+      // 有調整才可存檔
+      saveBtn.disabled = (diff === 0);
+    }
+
+    function adjust(d) {
+      pending = Math.max(0, pending + d);   // 庫存不低於 0
+      // 一旦重新調整，關掉先前的確認框與舊狀態
+      saveConfirm.classList.remove('show');
+      saveStatus.classList.remove('show', 'ok', 'err');
+      render();
+    }
+
+    function resetPending() {
+      pending = orig;
+      saveConfirm.classList.remove('show');
+      saveStatus.classList.remove('show', 'ok', 'err');
+      render();
+    }
+
+    // 加減按鈕
+    document.querySelectorAll('.stepper button').forEach(b => {
+      b.addEventListener('click', () => adjust(parseInt(b.dataset.d, 10)));
+    });
+    resetBtn.addEventListener('click', resetPending);
+
+    // 按「存檔」→ 先跳確認提醒
+    saveBtn.addEventListener('click', () => {
+      if (pending === orig) return;
+      confirmMsg.innerHTML =
+        `確定要把「${esc(code)}」的庫存<br>` +
+        `從 <b>${orig}</b> 變更為 <b>${pending}</b>，並存回 Ragic 嗎？`;
+      saveConfirm.classList.add('show');
+      saveStatus.classList.remove('show', 'ok', 'err');
+    });
+
+    confirmNo.addEventListener('click', () => saveConfirm.classList.remove('show'));
+
+    // 確定存檔 → 寫回 Ragic
+    confirmYes.addEventListener('click', async () => {
+      const target = pending;
+      confirmYes.disabled = true;
+      confirmYes.textContent = '存檔中…';
+      try {
+        const res = await fetch(BACKEND_URL + '/api/update', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ code: code, qty: target })
+        });
+        const out = await res.json().catch(() => ({}));
+        if (!res.ok || out.ok === false) {
+          throw new Error(out.error || out.detail || ('HTTP ' + res.status));
+        }
+        // 成功：把「原本」更新成剛存檔的數字
+        orig = (out.qty != null && !isNaN(toQtyNum(out.qty))) ? toQtyNum(out.qty) : target;
+        pending = orig;
+        saveConfirm.classList.remove('show');
+        render();
+        saveStatus.textContent = '✓ 已存檔，庫存已更新為 ' + orig;
+        saveStatus.className = 'save-status show ok';
+      } catch (e) {
+        saveConfirm.classList.remove('show');
+        saveStatus.textContent = '存檔失敗：' + (e.message || '無法連線到伺服器') + '（庫存未變更）';
+        saveStatus.className = 'save-status show err';
+      } finally {
+        confirmYes.disabled = false;
+        confirmYes.textContent = '確定存檔';
+      }
+    });
+
+    render();
   }
 
   async function lookup() {
